@@ -53,12 +53,8 @@ class Testris < Gosu::Window
     def initialize
         super BOARD_WIDTH*UNIT, BOARD_HEIGHT*UNIT
         @cooldown, @last_hit, @grace_period = 50, 0, 250
-        @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT+2) { Array.new(BOARD_WIDTH) { 0 } }
-        @song = Gosu::Song.new("media/testris.mp3")
-        @song.volume=0.03
-        @song.play true
-        @hooray, @drop_sample, @whoosh = Gosu::Sample.new("media/hooray.wav"), Gosu::Sample.new("media/drop.wav"), Gosu::Sample.new("media/whoosh.wav")
-        @played = false
+        @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) {
+                                                            Array.new(BOARD_WIDTH) { 0 } }
     end
     def button_up(id)
         @current.place(@grid) if id == Gosu::KbDown 
@@ -74,11 +70,8 @@ class Testris < Gosu::Window
         end
         if @current != nil 
             if @current.placed? @grid
-                @drop_sample.play 10, 1 if not @played
-                @played = true
                 @grace_period -= 10
                 if @grace_period <= 0
-                    @played = false
                     @grace_period = 250
                     @current.config.each_with_index{|bit, i|
                         c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
@@ -87,8 +80,6 @@ class Testris < Gosu::Window
                 end
             end 
             if @grid.select{|row| row.select{|bit| bit == 0} == []}.each{|rr| @grid.delete(rr)} != []
-                @whoosh.play if BOARD_HEIGHT-@grid.length != 4
-                @hooray.play 0.7, 0.7 if BOARD_HEIGHT-@grid.length == 4
                 (0...BOARD_HEIGHT-@grid.length).each {@grid.unshift(Array.new(BOARD_WIDTH){0})}
             end
             @current.drop if not @current.placed? @grid
