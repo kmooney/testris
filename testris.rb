@@ -1,6 +1,6 @@
 require 'gosu'
 CONFIGS = [[2,1,1,0,1,1,1,0],[2,2,1,1,1,1],[2,3,1,0,1,0,1,1],[2,4,0,1,0,1,1,1],[2,5,1,0,1,1,0,1],[2,6,0,1,1,1,1,0],[1,8,1,1,1,1]]
-COLORS = [ Gosu::Color.argb(0xff_111111), Gosu::Color.argb(0xff_6600ff), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff),]
+COLORS = [ Gosu::Color.argb(0xff_404040), Gosu::Color.argb(0xff_6600ff), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff),]
 BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING = 20, 10, 50, 2  # default: 20, 10, 30
 class Piece
     attr_reader :r, :c, :width, :config, :color
@@ -34,7 +34,7 @@ class Piece
     def draw(ox=0, oy=0, r=-1)
         @config.each_with_index{|bit, i|
            c, r = i % @width, i % @width == 0 ? r+1 : r
-           x, y = (@c+c) * UNIT + ox, (@r+r) * UNIT + oy
+           x, y = (@c+c+ox) * UNIT, (@r+r+oy) * UNIT
            Gosu::draw_rect(x,y,UNIT-PADDING,UNIT-PADDING,COLORS[@color],3) if bit != 0 }
     end
     def drop(cooldown=500)
@@ -51,10 +51,10 @@ class Piece
 end
 class Testris < Gosu::Window
     def initialize
-        super BOARD_WIDTH*UNIT, BOARD_HEIGHT*UNIT
+        super BOARD_WIDTH*3*UNIT/2, BOARD_HEIGHT*UNIT
         @cooldown, @last_hit, @grace_period = 50, 0, 250
-        @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) {
-                                                            Array.new(BOARD_WIDTH) { 0 } }
+        @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }
+        @lines, @font = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT)
     end
     def button_up(id)
         @current.place(@grid) if id == Gosu::KbDown 
@@ -80,18 +80,21 @@ class Testris < Gosu::Window
                 end
             end 
             if @grid.select{|row| row.select{|bit| bit == 0} == []}.each{|rr| @grid.delete(rr)} != []
-                (0...BOARD_HEIGHT-@grid.length).each {@grid.unshift(Array.new(BOARD_WIDTH){0})}
+                (0...BOARD_HEIGHT-@grid.length).each {
+                    @lines += 1
+                    @grid.unshift(Array.new(BOARD_WIDTH){0})}
             end
             @current.drop if not @current.placed? @grid
         end
     end
     def draw
         @grid.each_with_index{|row, i| row.each_with_index{|bit, j|
-                Gosu::draw_rect(j*UNIT,i*UNIT,UNIT-PADDING,UNIT-PADDING,COLORS[bit],3) if bit != 0 
-                Gosu::draw_rect(j*UNIT,i*UNIT,UNIT-PADDING,UNIT-PADDING,COLORS[0],3) if bit == 0
-        } }
+                Gosu::draw_rect(j*UNIT,i*UNIT,UNIT-PADDING,UNIT-PADDING,COLORS[bit],3) }}
         @current.draw
+        @font.draw "Lines: #{@lines}", BOARD_WIDTH*UNIT+UNIT/10, 0, 99
+        @font.draw "Next", BOARD_WIDTH*UNIT+UNIT/10, UNIT*2, 99
+        @font.draw "Use arrow keys to move piece, 'Q' and 'W' to rotate.", UNIT*2, UNIT*10, 30 if Gosu::milliseconds() < 5000
+        @next.draw 6.5,2.2
     end
 end
 Testris.new.show
-#TODO - collision detection side-to-side, drop is just "faster", score, title screen, <100 LOC!!
