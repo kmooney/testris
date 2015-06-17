@@ -11,11 +11,8 @@ class Piece
         @start_width = @width
         @timer = Gosu::milliseconds()
     end
-    def new_index(i, r=@config.length/@width)
-        @width * (r - i % r - 1) + i/r
-    end
-    def rotate_cw
-        @config = @config.each_with_index.map{|__,i| @config[new_index(i)]}
+    def rotate_cw(r=@config.length/@width)
+        @config = @config.each_with_index.map{|__,i| @config[@width * (r - i % r - 1) + i/r]}
         @width = @width != @start_width ? @start_width : @config.length / @width
         @c = BOARD_WIDTH - @width if @c + @width > BOARD_WIDTH
     end
