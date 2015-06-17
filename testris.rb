@@ -49,7 +49,7 @@ end
 class Testris < Gosu::Window
     def initialize
         super BOARD_WIDTH*3*UNIT/2, BOARD_HEIGHT*UNIT
-        @cooldown, @last_hit, @grace_period = 50, 0, 250
+        @cooldown, @last_hit = 50, 0
         @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }
         @lines, @font = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT)
     end
@@ -67,14 +67,10 @@ class Testris < Gosu::Window
         end
         if @current != nil 
             if @current.placed? @grid
-                @grace_period -= 10
-                if @grace_period <= 0
-                    @grace_period = 250
-                    @current.config.each_with_index{|bit, i|
-                        c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
-                        @grid[@current.r + r][@current.c + c] = @current.color if bit != 0 }
-                    @current, @next = @next, Piece.new
-                end
+                @current.config.each_with_index{|bit, i|
+                    c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
+                    @grid[@current.r + r][@current.c + c] = @current.color if bit != 0 }
+                @current, @next = @next, Piece.new
             end 
             if @grid.select{|row| row.select{|bit| bit == 0} == []}.each{|rr| @grid.delete(rr)} != []
                 (0...BOARD_HEIGHT-@grid.length).each {
