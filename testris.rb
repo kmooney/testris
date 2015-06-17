@@ -1,6 +1,6 @@
 require 'gosu'
-CONFIGS = [[2,1,1,0,1,1,1,0],[2,2,1,1,1,1],[2,3,1,0,1,0,1,1],[2,4,0,1,0,1,1,1],[2,5,1,0,1,1,0,1],[2,6,0,1,1,1,1,0],[1,8,1,1,1,1]]
-COLORS = [ Gosu::Color.argb(0xff_404040), Gosu::Color.argb(0xff_6600ff), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff),]
+CONFIGS = [[2,7,1,0,1,1,1,0],[2,2,1,1,1,1],[2,3,1,0,1,0,1,1],[2,4,0,1,0,1,1,1],[2,5,1,0,1,1,0,1],[2,6,0,1,1,1,1,0],[1,8,1,1,1,1]]
+COLORS = [ Gosu::Color.argb(0xff_202020), Gosu::Color.argb(0xff_666666), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff),]
 BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING = 20, 10, 50, 2  # default: 20, 10, 30
 class Piece
     attr_reader :r, :c, :width, :config, :color
@@ -69,14 +69,12 @@ class Testris < Gosu::Window
             if @current.placed? @grid
                 @current.config.each_with_index{|bit, i|
                     c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
-                    @grid[@current.r + r][@current.c + c] = @current.color if bit != 0 }
+                    @grid[@current.r + r][@current.c + c] = 1 if bit != 0 }
                 @current, @next = @next, Piece.new
             end 
-            if @grid.select{|row| row.select{|bit| bit == 0} == []}.each{|rr| @grid.delete(rr)} != []
-                (0...BOARD_HEIGHT-@grid.length).each {
-                    @lines += 1
-                    @grid.unshift(Array.new(BOARD_WIDTH){0})}
-            end
+            @grid.delete(Array.new(BOARD_WIDTH){1})
+            @lines += BOARD_HEIGHT-@grid.length
+            (0...BOARD_HEIGHT-@grid.length).each { @grid.unshift(Array.new(BOARD_WIDTH){0}) }
             @current.drop if not @current.placed? @grid
         end
     end
