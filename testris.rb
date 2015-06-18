@@ -1,7 +1,7 @@
 require 'gosu'
 CONFIGS = [[2,7,1,0,1,1,1,0],[2,2,1,1,1,1],[2,3,1,0,1,0,1,1],[2,4,0,1,0,1,1,1],[2,5,1,0,1,1,0,1],[2,6,0,1,1,1,1,0],[1,8,1,1,1,1]]
 COLORS = [Gosu::Color.argb(0xff_202020), Gosu::Color.argb(0xff_666666), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff)]
-BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING = 20, 10, 40, 2  # default: 20, 10, 30
+BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING, LOCK_TIMEOUT = 20, 10, 40, 2, 15
 class Piece
     attr_reader :r, :c, :width, :config, :color
     def initialize(config=nil)
@@ -55,7 +55,7 @@ end
 class Testris < Gosu::Window
     def initialize
         super BOARD_WIDTH*3*UNIT/2, BOARD_HEIGHT*UNIT
-        @cooldown, @last_hit, @locked = 50, 0, false
+        @cooldown, @last_hit, @locked, @lock_countdown, @down = 50, 0, false, LOCK_TIMEOUT, false
         @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }
         @lines, @font = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT)
     end
@@ -64,22 +64,25 @@ class Testris < Gosu::Window
         (@current.drop 0 while not @current.placed? @grid) if id == Gosu::KbDown
         @current.rotate_ccw @grid if id == Gosu::KbQ and check.rotate_ccw @grid
         @current.rotate_cw @grid if id == Gosu::KbW and check.rotate_cw @grid
-        @locked = true if @current.placed? @grid
+        @lock_countdown = LOCK_TIMEOUT
     end
     def update(r=-1)
         if Gosu::milliseconds() - @last_hit > @cooldown
             check = Marshal::load(Marshal::dump(@current))
             @current.left @grid if Gosu::button_down? Gosu::KbLeft and check.left @grid
             @current.right @grid if Gosu::button_down? Gosu::KbRight and check.right @grid
+            @lock_countdown = LOCK_TIMEOUT if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::KbLeft
             close if Gosu::button_down? Gosu::KbEscape
             @last_hit = Gosu::milliseconds()
         end
         if @current != nil 
+            @lock_countdown -= 1 if @current.placed? @grid and not @locked and @lock_countdown > 0
+            @locked = true if @lock_countdown <= 0
             if @current.placed? @grid and @locked
                 @current.config.each_with_index{|bit, i|
                     c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
                     @grid[@current.r + r][@current.c + c] = 1 if bit != 0 }
-                @current, @next, @locked = @next, Piece.new, false
+                @current, @next, @locked, @lock_countdown = @next, Piece.new, false, LOCK_TIMEOUT
             end 
             @grid.delete(Array.new(BOARD_WIDTH){1})
             @lines += BOARD_HEIGHT-@grid.length
