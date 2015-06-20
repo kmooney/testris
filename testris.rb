@@ -52,20 +52,22 @@ class Testris < Gosu::Window
         super BOARD_WIDTH*3*UNIT/2, BOARD_HEIGHT*UNIT
         @cooldown, @last_hit, @locked, @lock_countdown, @down = 50, 0, false, LOCK_TIMEOUT, false
         @next, @current, @grid, @gameover = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }, false
-        @lines, @font = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT)
+        @lines, @font, @ready = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT), true
     end
     def button_up(id, current_copy=Marshal::load(Marshal::dump(@current)))
         @current.rotate_ccw @grid if id == Gosu::KbQ and current_copy.check(@grid) { |g| current_copy.rotate_ccw g } 
         @current.rotate_cw @grid if id == Gosu::KbW and current_copy.check(@grid) { |g| current_copy.rotate_cw g }
         @lock_countdown = LOCK_TIMEOUT
+        (@current, @lines, @grid, @gameover = Piece.new, 0, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) {0}}, false) if id == Gosu::KbSpace
     end
     def update(r=-1, current_copy=Marshal::load(Marshal::dump(@current)))
+        close if Gosu::button_down? Gosu::KbEscape
+        return if @gameover
         if Gosu::milliseconds() - @last_hit > @cooldown
             @current.drop 0 if Gosu::button_down? Gosu::KbDown and not @current.placed? @grid
             @current.left @grid if Gosu::button_down? Gosu::KbLeft and current_copy.check(@grid) {|g| current_copy.left(g)}
             @current.right @grid if Gosu::button_down? Gosu::KbRight and current_copy.check(@grid) {|g| current_copy.right(g)}
             @lock_countdown = LOCK_TIMEOUT if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::KbLeft
-            close if Gosu::button_down? Gosu::KbEscape
             @last_hit = Gosu::milliseconds()
         end
         if @current != nil 
@@ -75,22 +77,23 @@ class Testris < Gosu::Window
                 @current.config.each_with_index{|bit, i|
                     c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
                     @gameover = true if @grid[@current.r + r][@current.c + c] == 1 and bit != 0
-                    @grid[@current.r + r][@current.c + c] = 1 if bit != 0 }
-                @current, @next, @locked, @lock_countdown = @next, Piece.new, false, LOCK_TIMEOUT
+                    @grid[@current.r + r][@current.c + c] = 1 if bit != 0 } if not @gameover
+                @current, @next, @locked, @lock_countdown = @next, Piece.new, false, LOCK_TIMEOUT if not @gameover
             end 
             @grid.delete(Array.new(BOARD_WIDTH){1})
             @lines += BOARD_HEIGHT - @grid.length
             (0...BOARD_HEIGHT - @grid.length).each { @grid.unshift(Array.new(BOARD_WIDTH){0}) }
-            @current.drop if not @current.placed? @grid
+            @current.drop if not @current.placed? @grid and not @gameover
         end
     end
     def draw
         @grid.each_with_index{|row, i| row.each_with_index{|bit, j|
             Gosu::draw_rect(j * UNIT, i * UNIT, UNIT - PADDING, UNIT - PADDING, COLORS[bit], 3) }}
         @current.draw
-        @font.draw "Lines: #{@lines}", BOARD_WIDTH*UNIT+UNIT/10, 0, 99
-        @font.draw "Next", BOARD_WIDTH*UNIT+UNIT/10, UNIT*2, 99
-        @next.draw 6.5,2.2
+        @font.draw "Game Over - press space to play again", UNIT*3, UNIT*5, 99 if @gameover
+        @font.draw "Lines: #{@lines}", BOARD_WIDTH*UNIT+UNIT/10, 0, 99 if not @gameover
+        @font.draw "Next", BOARD_WIDTH*UNIT+UNIT/10, UNIT*2, 99 if not @gameover
+        @next.draw 6.5,2.2 if not @gameover
     end
 end
 Testris.new.show
