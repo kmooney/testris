@@ -1,7 +1,7 @@
 require 'gosu'
 PIECES = [[2,7,1,0,1,1,1,0],[2,2,1,1,1,1],[2,3,1,0,1,0,1,1],[2,4,0,1,0,1,1,1],[2,5,1,0,1,1,0,1],[2,6,0,1,1,1,1,0],[1,8,1,1,1,1]]
-COLORS = [Gosu::Color.argb(0xff_202020), Gosu::Color.argb(0xff_666666), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_999966), Gosu::Color.argb(0xff_ff66ff)]
-BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING, LOCK_TIMEOUT = 20, 10, 10, 2, 15
+COLORS = [Gosu::Color.argb(0xff_202020), Gosu::Color.argb(0xff_666666), Gosu::Color.argb(0xff_ffff66), Gosu::Color.argb(0xff_66ffff), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_0033cc), Gosu::Color.argb(0xff_ff6666), Gosu::Color.argb(0xff_11aa11), Gosu::Color.argb(0xff_ff66ff)]
+BOARD_HEIGHT, BOARD_WIDTH, UNIT, PADDING, LOCK_TIMEOUT = 20, 10, 40, 2, 15
 class Piece
     attr_reader :r, :c, :width, :config, :color
     def initialize(config=nil)
@@ -10,7 +10,8 @@ class Piece
         @width, @color = @config.shift, @config.shift
         @start_width, @timer = @width, Gosu::milliseconds()
     end
-    def check(grid, r=@r-1)
+    def check(grid, r=@r-1, *args)
+        yield grid
         @config.each_with_index{ |el, i|
             c, r = i % @width + @c, i % @width == 0 ? r + 1 : r
             return false if c < 0 or c >= BOARD_WIDTH or (el != 0 and grid[r][c] == 1) }
@@ -20,19 +21,15 @@ class Piece
         @config = @config.each_with_index.map{|__, i| @config[@width * (r - i % r - 1) + i / r]}
         @width = @width != @start_width ? @start_width : @config.length / @width
         @c = BOARD_WIDTH - @width if @c + @width > BOARD_WIDTH
-        check(grid)
     end
     def rotate_ccw(grid)
         (1..3).each do rotate_cw grid end
-        check(grid)
     end
     def left(grid)
         @c -= 1
-        check(grid)
     end
     def right(grid)
         @c += 1
-        check(grid)
     end
     def draw(ox=0, oy=0, r=-1)
         @config.each_with_index{|bit, i|
@@ -54,19 +51,19 @@ class Testris < Gosu::Window
     def initialize
         super BOARD_WIDTH*3*UNIT/2, BOARD_HEIGHT*UNIT
         @cooldown, @last_hit, @locked, @lock_countdown, @down = 50, 0, false, LOCK_TIMEOUT, false
-        @next, @current, @grid = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }
+        @next, @current, @grid, @gameover = Piece.new, Piece.new, Array.new(BOARD_HEIGHT) { Array.new(BOARD_WIDTH) { 0 } }, false
         @lines, @font = 0, Gosu::Font.new(self, "media/minecraftia.ttf", UNIT)
     end
-    def button_up(id, check=Marshal::load(Marshal::dump(@current)))
-        @current.rotate_ccw @grid if id == Gosu::KbQ and check.rotate_ccw @grid
-        @current.rotate_cw @grid if id == Gosu::KbW and check.rotate_cw @grid
+    def button_up(id, current_copy=Marshal::load(Marshal::dump(@current)))
+        @current.rotate_ccw @grid if id == Gosu::KbQ and current_copy.check(@grid) { |g| current_copy.rotate_ccw g } 
+        @current.rotate_cw @grid if id == Gosu::KbW and current_copy.check(@grid) { |g| current_copy.rotate_cw g }
         @lock_countdown = LOCK_TIMEOUT
     end
-    def update(r=-1, check=Marshal::load(Marshal::dump(@current)))
+    def update(r=-1, current_copy=Marshal::load(Marshal::dump(@current)))
         if Gosu::milliseconds() - @last_hit > @cooldown
             @current.drop 0 if Gosu::button_down? Gosu::KbDown and not @current.placed? @grid
-            @current.left @grid if Gosu::button_down? Gosu::KbLeft and check.left @grid
-            @current.right @grid if Gosu::button_down? Gosu::KbRight and check.right @grid
+            @current.left @grid if Gosu::button_down? Gosu::KbLeft and current_copy.check(@grid) {|g| current_copy.left(g)}
+            @current.right @grid if Gosu::button_down? Gosu::KbRight and current_copy.check(@grid) {|g| current_copy.right(g)}
             @lock_countdown = LOCK_TIMEOUT if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::KbLeft
             close if Gosu::button_down? Gosu::KbEscape
             @last_hit = Gosu::milliseconds()
@@ -77,6 +74,7 @@ class Testris < Gosu::Window
             if @current.placed? @grid and @locked
                 @current.config.each_with_index{|bit, i|
                     c, r = (i % @current.width), (i % @current.width == 0 ? r+1 : r)
+                    @gameover = true if @grid[@current.r + r][@current.c + c] == 1 and bit != 0
                     @grid[@current.r + r][@current.c + c] = 1 if bit != 0 }
                 @current, @next, @locked, @lock_countdown = @next, Piece.new, false, LOCK_TIMEOUT
             end 
